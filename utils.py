@@ -216,6 +216,26 @@ class ListNet(torch.nn.Module):
     def get_score_function(self):
         return self.f
 
+class SiameseNetwork101(nn.Module):
+    """
+    Siamese neural network
+    Modified from: https://hackernoon.com/facial-similarity-with-siamese-networks-in-pytorch-9642aa9db2f7
+    Siamese ResNet-101 from Pytorch library
+    """ 
+    def __init__(self):
+        super(SiameseNetwork101, self).__init__()
+        # note that resnet101 requires 3 input channels, will repeat grayscale image x3
+        self.cnn1 = models.resnet101(pretrained = True)
+        self.cnn1.fc = nn.Linear(2048, 3) # mapping input image to a 3 node output
+
+    def forward_once(self, x):
+        output = self.cnn1(x)
+        return output
+
+    def forward(self, input1, input2):
+        output1 = self.forward_once(input1)
+        output2 = self.forward_once(input2)
+        return output1, output2
 
 class RankNet_wresnet(torch.nn.Module):
     def __init__(self, fcnet = None, feature_extractor='resnet50', cotrain=True, simclr=None):
@@ -293,6 +313,50 @@ class RankNet_wresnet3(torch.nn.Module):
         return self.model
     def get_dense(self):
         return self.dense
+
+def get_activation(activation='sigmoid'):
+    # ret = Sigmoid()
+    if(activation == "Sigmoid"):
+        ret = torch.nn.Sigmoid()
+    elif(activation == "ReLU"):
+        ret = torch.nn.ReLU()
+    elif(activation == "GELU"):
+        ret = torch.nn.GELU()
+    else:
+        assert False, "Please choose activation between Sigmoid, ReLU, GELU"
+    return ret
+
+# class nComparisonSiamese(Module):
+#     def __init__(self, 
+#                 fcnet = None, 
+#                 feature_extractor='resnet50', 
+#                 cotrain=True, 
+#                 ncriteria=10, 
+#                 simclr=None,
+#                 activation='sigmoid'):
+#         super(nComparisonSiamese, self).__init__()
+
+#         self.fextractor = get_feature_extractor(feature_extractor, fcnet=fcnet, cotrain = cotrain, model = 'siamese10', ncriteria = ncriteria, simclr=simclr)
+#         self.activation = get_activation(activation)
+        
+#         self.dense = fcnet if fcnet else Sequential(torch.nn.Linear(ncriteria, 4), 
+#                                                     torch.nn.ReLU(), 
+#                                                     torch.nn.Dropout(0.1), 
+#                                                     torch.nn.Linear(4, 2))
+
+#         for param in self.dense.parameters():
+#             param.requires_grad = True
+        
+#     def forward(self, x1, x2):
+#         x1 = self.fextractor(x1)
+#         x2 = self.fextractor(x2)
+#         return self.dense(self.activation(x1-x2))
+    
+#     def get_model(self):
+#         return self.fextractor
+    
+#     def get_dense(self):
+#         return self.dense
 
 def get_feature_extractor(feature_extractor = 'resnet50', fcnet = None, cotrain=True, ncriteria=10, model='siamese1', simclr = None):
     if(feature_extractor == 'resnet50'):    
@@ -454,14 +518,21 @@ def calculate_iou(pred_mask, gt_mask, true_pos_only):
 
     return iou_score
 
-class TransferData:
-    def __init__(self, access_token):
-        self.access_token = access_token
+class ContrastiveLoss(torch.nn.Module):
+    """
+    Contrastive loss function.
+    Based on: http://yann.lecun.com/exdb/publis/pdf/hadsell-chopra-lecun-06.pdf
+    Modified from: https://hackernoon.com/facial-similarity-with-siamese-networks-in-pytorch-9642aa9db2f7
 
-    def upload_file(self, file_from, file_to):
-        """upload a file to Dropbox using API v2
-        """
-        dbx = dropbox.Dropbox(self.access_token)
+    """ 
 
-        with open(file_from, 'rb') as f:
-            dbx.files_upload(f.read(), file_to)
+    def __init__(self, margin=2.0):
+        super(ContrastiveLoss, self).__init__()
+        self.margin = margin
+
+    def forward(self, output1, output2, label):
+        euclidean_distance = F.pairwise_distance(output1, output2)
+        loss_contrastive = torch.mean((1-label) * torch.pow(euclidean_distance, 2) +
+                                      (label) * torch.pow(torch.clamp(self.margin - euclidean_distance, min=0.0), 2))
+
+        return loss_contrastive
