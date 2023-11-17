@@ -7,3 +7,4 @@ storm/
 pycarl/
 stormpy/
 *.zip
+*.npy
