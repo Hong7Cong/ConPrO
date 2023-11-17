@@ -24,7 +24,7 @@ class PapilSeverityDataset(Dataset):
     def __init__(self, 
                 data_dir = '/mnt/c/Users/Hong/Dropbox/chla_fundus_croped/', 
                 phase='train', 
-                task='_classification', 
+                task='classification', 
                 datalen = 100):
         self.data_dir = data_dir
         self.phase = phase
@@ -65,6 +65,5 @@ class PapilSeverityDataset(Dataset):
 
         return (img1, img2), target
 
-    
     def __len__(self):
         return self.datalen

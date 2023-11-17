@@ -1,5 +1,8 @@
 pretrained/
 pythonvideoconvertermaster/
 SimCLR/
-
+# cvi-eye-tracking/
+ssm/
+storm/
+stormpy/
 *.zip
