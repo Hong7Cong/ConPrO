@@ -4,5 +4,6 @@ SimCLR/
 # cvi-eye-tracking/
 ssm/
 storm/
+pycarl/
 stormpy/
 *.zip
