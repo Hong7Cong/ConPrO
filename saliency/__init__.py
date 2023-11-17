@@ -3,7 +3,7 @@ from .depth import *
 from .object import *
 from .angle import *
 from .basic import *
-from .deepg import *
+# from .deepg import *
 
 
 class SaliencyMap:

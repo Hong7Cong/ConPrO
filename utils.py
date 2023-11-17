@@ -5,8 +5,8 @@ from tslearn.metrics import dtw
 from process import Subject
 
 
-DATA_ROOT = "/home/kavra/Datasets/medical/cvi_eyetracking/asc_data_v1/"
-IMGS_ROOT = "trials/"
+DATA_ROOT = "/mnt/c/Users/PCM/Dropbox/cvi-asc/"
+IMGS_ROOT = "/mnt/c/Users/PCM/Dropbox/cvi-stimuli"
 SMAP_ROOT = "output/extra/saliency_maps/"
 
 TRIAL_LIST = [

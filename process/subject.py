@@ -58,7 +58,7 @@ class Subject:
         Returns: list of measurement rows (str) for <trial_name>
         """
         trial_active, trial = False, []
-        for line in self.data:
+        for idx, line in enumerate(self.data):
             if trial_active:
                 if "End Trial {}".format(trial_name) in line:
                     break
@@ -70,6 +70,14 @@ class Subject:
                 elif not numeric:
                     trial.append(line)
             elif "Start Trial {}".format(trial_name) in line:
+                curindex = idx
+                while("INPUT" not in self.data[curindex]):
+                    if("MSG" in self.data[curindex]):
+                        curindex = curindex - 1
+                        continue
+                    trial.append(self.data[curindex])
+                    curindex = curindex - 1
+                trial.reverse()
                 trial_active = True
             else:
                 continue
@@ -381,3 +389,40 @@ class Subject:
         # calculate the entropy
         entropy = shannon_entropy(velocity)
         return entropy**2 if perplexity else entropy
+    
+    def get_trial(self):
+        return self.trial
+    
+    def get_CTMC(self, left=True):
+        this_eye = "R" if left else "L"
+        ret = ['init']
+        startcount, startvalue, lastvalue = False, 0, 0
+        for line in self.trial:
+            if f"EFIX {this_eye}" in line:
+                if(startcount == True):
+                    ret.append(lastvalue - startvalue)
+                    startcount = False
+                ret.append('EFIX')
+            elif f"ESACC {this_eye}" in line:
+                if(startcount == True):
+                    ret.append(lastvalue - startvalue)
+                    startcount = False
+                ret.append('ESACC')
+            elif f"SBLINK {this_eye}" in line:
+                if(startcount == True):
+                    ret.append(lastvalue - startvalue)
+                    startcount = False
+                ret.append('SBLINK')
+            else:
+                l = line.split("\t")
+                if(len(l) < 10):
+                    continue
+                if(startcount == False):
+                    startcount = True
+                    startvalue = int(l[0])
+                lastvalue = int(l[0])
+                # ret.append(l[0])
+            ret.append(lastvalue - startvalue)
+        return ret
+
+    
