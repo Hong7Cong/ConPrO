@@ -4,3 +4,4 @@ smaps/
 __pycache__/
 DeepGaze/
 .*/
+*.npy
