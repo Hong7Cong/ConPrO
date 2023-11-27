@@ -393,9 +393,11 @@ class Subject:
     def get_trial(self):
         return self.trial
     
-    def get_CTMC(self, left=True):
+    def get_CTMC(self, trial_name, left=True):
+        self.trial = self.__trial_list(trial_name, numeric=False)
         this_eye = "R" if left else "L"
         ret = ['init']
+        dwelltime = []
         startcount, startvalue, lastvalue = False, 0, 0
         for line in self.trial:
             if f"EFIX {this_eye}" in line:
@@ -408,21 +410,21 @@ class Subject:
                     ret.append(lastvalue - startvalue)
                     startcount = False
                 ret.append('ESACC')
-            elif f"SBLINK {this_eye}" in line:
+            elif f"EBLINK {this_eye}" in line:
                 if(startcount == True):
                     ret.append(lastvalue - startvalue)
                     startcount = False
-                ret.append('SBLINK')
+                ret.append('EBLINK')
             else:
                 l = line.split("\t")
                 if(len(l) < 10):
                     continue
                 if(startcount == False):
                     startcount = True
-                    startvalue = int(l[0])
-                lastvalue = int(l[0])
+                    startvalue = float(l[0])
+                lastvalue = float(l[0])
                 # ret.append(l[0])
-            ret.append(lastvalue - startvalue)
+        # ret.append(lastvalue - startvalue)
         return ret
 
     
