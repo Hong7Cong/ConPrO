@@ -536,3 +536,106 @@ class ContrastiveLoss(torch.nn.Module):
                                       (label) * torch.pow(torch.clamp(self.margin - euclidean_distance, min=0.0), 2))
 
         return loss_contrastive
+
+class SeverityModel(nn.Module):
+    """
+    Siamese neural network
+    Modified from: https://hackernoon.com/facial-similarity-with-siamese-networks-in-pytorch-9642aa9db2f7
+    Siamese ResNet-101 from Pytorch library
+    """ 
+    def __init__(self):
+        super(SeverityModel, self).__init__()
+        # note that resnet101 requires 3 input channels, will repeat grayscale image x3
+        self.bestsimese50simclr = SiameseNetwork101()
+        state_dict = torch.load('./pretrained/best-contrastive50.pt')
+        self.bestsimese50simclr.load_state_dict(state_dict)
+        self.bestsimese50simclr.cnn1.add_module('fc2',
+            nn.Sequential(torch.nn.Linear(256, 256),
+                          torch.nn.ReLU(),
+                        torch.nn.Dropout(0.1),
+                        torch.nn.Linear(256, 256)))
+    
+    def forward_once(self, x):
+        output = self.bestsimese50simclr.cnn1.fc2(self.bestsimese50simclr.cnn1(x))
+        return output
+
+    def forward(self, input1, input2, refinput):
+        output1 = self.forward_once(input1)
+        output2 = self.forward_once(input2)
+        refinput = self.bestsimese50simclr.cnn1(refinput)
+        return output1, output2, refinput
+
+class PreferenceComparisonLoss(torch.nn.Module):
+    """
+    Contrastive loss function.
+    Based on: http://yann.lecun.com/exdb/publis/pdf/hadsell-chopra-lecun-06.pdf
+    Modified from: https://hackernoon.com/facial-similarity-with-siamese-networks-in-pytorch-9642aa9db2f7
+
+    """ 
+
+    def __init__(self, margin=2.0):
+        super(PreferenceComparisonLoss, self).__init__()
+        self.margin = margin
+
+    def forward(self, output1, output2, label, ref):
+        # euclidean_distance = torch.nn.functional.pairwise_distance(output1, output2)
+        # loss_contrastive = torch.mean((1-label) * torch.pow(euclidean_distance, 2) +
+        #                               (label) * torch.pow(torch.clamp(self.margin - euclidean_distance, min=0.0), 2))
+        
+        cosine_distanceA = torch.nn.functional.cosine_similarity(output1, ref)
+        cosine_distanceB = torch.nn.functional.cosine_similarity(output2, ref)
+        loss_comparation = torch.nn.NLLLoss()(torch.nn.Sigmoid()(cosine_distanceA - cosine_distanceB), label)
+
+        return loss_comparation
+
+class SiameseNetwork101(nn.Module):
+    """
+    Siamese neural network
+    Modified from: https://hackernoon.com/facial-similarity-with-siamese-networks-in-pytorch-9642aa9db2f7
+    Siamese ResNet-101 from Pytorch library
+    """ 
+    def __init__(self):
+        super(SiameseNetwork101, self).__init__()
+        # note that resnet101 requires 3 input channels, will repeat grayscale image x3
+        self.cnn1 = get_feature_extractor(feature_extractor='resnet50', cotrain=False)# , simclr='/mnt/c/Users/PCM/Dropbox/pretrained/SimCLR/checkpoint_10_02102023.pth.tar')
+        self.cnn1.fc = nn.Sequential(torch.nn.Linear(2048, 1000),
+                                torch.nn.ReLU(),
+                                torch.nn.Dropout(0.1),
+                                torch.nn.Linear(1000, 256))
+    
+    def forward_once(self, x):
+        output = self.cnn1(x)
+        return output
+
+    def forward(self, input1, input2):
+        output1 = self.forward_once(input1)
+        output2 = self.forward_once(input2)
+        return output1, output2
+    
+class SeverityModel(nn.Module):
+    """
+    Siamese neural network
+    Modified from: https://hackernoon.com/facial-similarity-with-siamese-networks-in-pytorch-9642aa9db2f7
+    Siamese ResNet-101 from Pytorch library
+    """ 
+    def __init__(self):
+        super(SeverityModel, self).__init__()
+        # note that resnet101 requires 3 input channels, will repeat grayscale image x3
+        self.bestsimese50simclr = SiameseNetwork101()
+        state_dict = torch.load('./pretrained/best-contrastive50.pt')
+        self.bestsimese50simclr.load_state_dict(state_dict)
+        self.bestsimese50simclr.cnn1.add_module('fc2',
+            nn.Sequential(torch.nn.Linear(256, 256),
+                          torch.nn.ReLU(),
+                        torch.nn.Dropout(0.1),
+                        torch.nn.Linear(256, 256)))
+    
+    def forward_once(self, x):
+        output = self.bestsimese50simclr.cnn1.fc2(self.bestsimese50simclr.cnn1(x))
+        return output
+
+    def forward(self, input1, input2, refinput):
+        output1 = self.forward_once(input1)
+        output2 = self.forward_once(input2)
+        refinput = self.bestsimese50simclr.cnn1(refinput)
+        return output1, output2, refinput
