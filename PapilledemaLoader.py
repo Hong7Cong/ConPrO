@@ -1,12 +1,20 @@
 from torch.utils.data import Dataset
 from torchvision import datasets
-from torch import randint
+from torch import randint, manual_seed, cuda, backends
 from constants import data_transforms
 import sys
 import os
 import glob
 from PIL import Image
 import random
+
+def seed_everything(seed: int):
+    random.seed(seed)
+    # np.random.seed(seed)
+    manual_seed(seed)
+    cuda.manual_seed(seed)
+    backends.cudnn.deterministic = True
+    backends.cudnn.benchmark = True
 
 def PapilledemaDataset(data_dir = '/mnt/c/Users/Hong/Dropbox/chla_fundus_croped/',
                            phase = 'train', 
@@ -25,7 +33,8 @@ class PapilSeverityDataset(Dataset):
                 data_dir = '/mnt/c/Users/Hong/Dropbox/chla_fundus_croped/', 
                 phase='train', 
                 mode='multiclass_contrastive', 
-                datalen = 100):
+                datalen = 100,
+                seed = 100):
         self.data_dir = data_dir
         self.phase = phase
         self.datalen = datalen
@@ -46,6 +55,7 @@ class PapilSeverityDataset(Dataset):
         self.paths0 = []
         self.complabels = []
         curlen = 0
+        seed_everything(seed)
         while(curlen < self.datalen):
             if(mode == 'multiclass_contrastive'):
                 if(random.randint(0, 1) == 0):
@@ -60,18 +70,25 @@ class PapilSeverityDataset(Dataset):
                 self.complabels.append((i1 == i2) * 1)
                 curlen = curlen + 1
             elif(mode == 'binary_contrastive'):
-                if(random.randint(0, 1) == 0):
+                modee = random.randint(0, 3)
+                if(modee == 0):
                     i1 = 0
                     i2 = 0
-                else:
+                elif(modee == 1):
+                    i1 = random.randint(1, 5)
+                    i2 = random.randint(1, 5)
+                elif(modee == 2):
                     i1 = 0
                     i2 = random.randint(1, 5)
+                else:
+                    i2 = 0
+                    i1 = random.randint(1, 5)
                 # pickimageA = randint(0, lenofclass[random_pick_2class[0]], (1,))
                 self.listi1.append(i1)
                 self.listi2.append(i2)
                 self.paths1.append(imagesinclass[i1][randint(0, lenofclass[i1], (1,))[0]])
                 self.paths2.append(imagesinclass[i2][randint(0, lenofclass[i2], (1,))[0]])
-                self.complabels.append(((i1 == 0) and (i2 == 0)) * 1)
+                self.complabels.append((((i1 == 0) and (i2 == 0)) or ((i1 !=0) and (i2 !=0))) * 1)
                 curlen = curlen + 1
             elif(mode == 'severity_comparison'):
                 i1 = random.randint(1, 5)

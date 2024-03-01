@@ -531,9 +531,14 @@ class ContrastiveLoss(torch.nn.Module):
         self.margin = margin
 
     def forward(self, output1, output2, label):
-        euclidean_distance = F.pairwise_distance(output1, output2)
-        loss_contrastive = torch.mean((1-label) * torch.pow(euclidean_distance, 2) +
-                                      (label) * torch.pow(torch.clamp(self.margin - euclidean_distance, min=0.0), 2))
+        # euclidean_distance = torch.nn.functional.pairwise_distance(output1, output2)
+        # loss_contrastive = torch.mean((1-label) * torch.pow(euclidean_distance, 2) +
+        #                               (label) * torch.pow(torch.clamp(self.margin - euclidean_distance, min=0.0), 2))
+        
+        cosine_distance = torch.nn.functional.cosine_similarity(output1, output2)
+        loss_contrastive = torch.mean((1-label) * torch.pow(cosine_distance, 2) +
+                                      (label) * torch.pow(torch.clamp(self.margin - cosine_distance, min=0.0), 2))
+        # loss_contrastive =  torch.nn.NLLLoss()(cosine_distance)
 
         return loss_contrastive
 
@@ -618,11 +623,11 @@ class SeverityModel(nn.Module):
     Modified from: https://hackernoon.com/facial-similarity-with-siamese-networks-in-pytorch-9642aa9db2f7
     Siamese ResNet-101 from Pytorch library
     """ 
-    def __init__(self):
+    def __init__(self, path2pretrained='./pretrained/best-contrastive50.pt'):
         super(SeverityModel, self).__init__()
         # note that resnet101 requires 3 input channels, will repeat grayscale image x3
         self.bestsimese50simclr = SiameseNetwork101()
-        state_dict = torch.load('./pretrained/best-contrastive50.pt')
+        state_dict = torch.load(path2pretrained)
         self.bestsimese50simclr.load_state_dict(state_dict)
         self.bestsimese50simclr.cnn1.add_module('fc2',
             nn.Sequential(torch.nn.Linear(256, 256),
