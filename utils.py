@@ -602,7 +602,7 @@ class SiameseNetwork101(nn.Module):
     def __init__(self):
         super(SiameseNetwork101, self).__init__()
         # note that resnet101 requires 3 input channels, will repeat grayscale image x3
-        self.cnn1 = get_feature_extractor(feature_extractor='resnet50', cotrain=False)# , simclr='/mnt/c/Users/PCM/Dropbox/pretrained/SimCLR/checkpoint_10_02102023.pth.tar')
+        self.cnn1 = get_feature_extractor(feature_extractor='resnet50', cotrain=False, simclr='/mnt/c/Users/PCM/Dropbox/pretrained/SimCLR/checkpoint_0050.pth.tar')
         self.cnn1.fc = nn.Sequential(torch.nn.Linear(2048, 1000),
                                 torch.nn.ReLU(),
                                 torch.nn.Dropout(0.1),
