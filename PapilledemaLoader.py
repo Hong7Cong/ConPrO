@@ -63,10 +63,14 @@ class PapilSeverityDataset(Dataset):
                 if(random.randint(0, 1) == 0):
                     i1 = random.randint(0, 5)
                     i2 = random.randint(0, 5)
+                    while(i1 == i2):
+                        i2 = random.randint(0, 5)
                 else:
                     i1 = random.randint(0, 5)
                     i2 = i1
                 # pickimageA = randint(0, lenofclass[random_pick_2class[0]], (1,))
+                self.listi1.append(i1)
+                self.listi2.append(i2)
                 self.paths1.append(imagesinclass[i1][randint(0, lenofclass[i1], (1,))[0]])
                 self.paths2.append(imagesinclass[i2][randint(0, lenofclass[i2], (1,))[0]])
                 self.complabels.append((i1 == i2) * 1)
