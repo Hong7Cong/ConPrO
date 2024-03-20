@@ -140,6 +140,12 @@ class PapilSeverityDataset(Dataset):
             ref_img = self.transform(Image.open(ref_img))
         return ref_img
     
+    def get_ref_images2(self,n=10):
+        ref_img = np.array(self.imagesinclass0)[randint(0, len(self.imagesinclass0), (n,))]
+        if(self.transform):
+            ref_img = [self.transform(Image.open(i)) for i in ref_img]
+        return ref_img
+    
     def __len__(self):
         return self.datalen
 
