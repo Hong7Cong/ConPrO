@@ -14,10 +14,10 @@ from torchvision import datasets, models, transforms
 import pydicom
 from pydicom.pixel_data_handlers.util import apply_voi_lut
 import pandas as pd
+from constants import mean, std
 
-
-mean = [0.485, 0.456, 0.406]
-std = [0.229, 0.224, 0.225]
+# mean = [0.485, 0.456, 0.406]
+# std = [0.229, 0.224, 0.225]
 
 
 class Breast_crop(object):
@@ -152,6 +152,8 @@ class MammoCompDataset(Dataset):
                     i1 = random.randint(0, 4)
                     i2 = i1
                 # pickimageA = randint(0, lenofclass[random_pick_2class[0]], (1,))
+                self.listi1.append(i1)
+                self.listi2.append(i2)
                 self.paths1.append(self.get_path(self.birads[i1], randint(0, self.len_of_classes[i1], (1,))[0]))
                 self.paths2.append(self.get_path(self.birads[i2], randint(0, self.len_of_classes[i2], (1,))[0]))
                 self.complabels.append((i1 == i2) * 1)
@@ -222,8 +224,11 @@ class MammoCompDataset(Dataset):
         
         imageA = self.transform(imageA)
         imageB = self.transform(imageB)
-
-        return (imageA, imageB), label, (self.listi1[index], self.listi2[index])
+        if self.mode =='severity_comparison':
+            ref_img = self.get_ref_images()
+            return (imageA, imageB), ref_img, label, (self.listi1[index], self.listi2[index])
+        else:
+            return (imageA, imageB), label, (self.listi1[index], self.listi2[index])
     
     def get_ref_images(self):
         ref_img = self.get_path(self.imagesinclass0,randint(0, len(self.imagesinclass0), (1,))[0])
