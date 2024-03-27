@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset
 import torchvision
 import numpy as np
-from torchvision import datasets
+import cv2
 from torch import randint, manual_seed, cuda, backends
 import sys
 import os
@@ -14,10 +14,10 @@ from torchvision import datasets, models, transforms
 import pydicom
 from pydicom.pixel_data_handlers.util import apply_voi_lut
 import pandas as pd
+from constants import mean, std
 
-
-mean = [0.485, 0.456, 0.406]
-std = [0.229, 0.224, 0.225]
+# mean = [0.485, 0.456, 0.406]
+# std = [0.229, 0.224, 0.225]
 
 
 class Breast_crop(object):
@@ -38,30 +38,27 @@ class Breast_crop(object):
         img = F.crop(img, 0,j,h-i,w-j)
         return img
 data_transforms = {
-    'train': [
+    'train': transforms.Compose([
         transforms.ToPILImage(),
-        Breast_crop(),
         transforms.Resize((450,200)),
         transforms.RandomHorizontalFlip(p=0.3),
         transforms.RandomApply(torch.nn.ModuleList([transforms.ColorJitter(),]),p=0.3),
         transforms.RandomApply(torch.nn.ModuleList([transforms.GaussianBlur(kernel_size=3),]),p=0.3),
         transforms.ToTensor(),
         transforms.Normalize(mean, std)
-    ],
-    'val': [
+    ]),
+    'val': transforms.Compose([
         transforms.ToPILImage(),
-        Breast_crop(),
         transforms.Resize((450,200)),
         transforms.ToTensor(),
         transforms.Normalize(mean, std)
-    ],
-    'test': [
+    ]),
+    'test': transforms.Compose([
         transforms.ToPILImage(),
-        Breast_crop(),
         transforms.Resize((450,200)),
         transforms.ToTensor(),
         transforms.Normalize(mean, std)
-    ],
+    ]),
 }
 
 def seed_everything(seed: int):
@@ -71,50 +68,50 @@ def seed_everything(seed: int):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = True
 
-def read_xray(path, voi_lut = True, fix_monochrome = True):
-    dicom = pydicom.read_file(path)
-    
-    # VOI LUT (if available by DICOM device) is used to transform raw DICOM data to "human-friendly" view
-    if voi_lut:
-        data = apply_voi_lut(dicom.pixel_array, dicom)
-    else:
-        data = dicom.pixel_array
-               
-    # depending on this value, X-ray may look inverted - fix that:
-    if fix_monochrome and dicom.PhotometricInterpretation == "MONOCHROME1":
-        data = np.amax(data) - data
-        
-    data = data - np.min(data)
-    data = data / np.max(data)
-    #data = data.astype('float32')
-    data = (data*255).astype(np.uint8)
-    data = np.repeat(np.expand_dims(data,axis=2),3,2)
-        
-    return data
 
-def check_ori(img):
-    w= img.shape[1]
-    left= img[:,0:int(w/2),:].sum()
-    right = img[:,int(w/2):].sum()
-    if left>right:
-        return True
-    return False
 
-def PapilledemaDataset(data_dir = '/mnt/c/Users/Hong/Dropbox/chla_fundus_croped/',
-                           phase = 'train', 
-                           task = 'binary_classification'):
-    
-    if(task=='binary_classification'):
-        return datasets.ImageFolder(os.path.join(data_dir, phase), data_transforms[phase])
-    elif(task=='multiclass_classification'):
-        return datasets.ImageFolder(os.path.join(data_dir, phase), data_transforms[phase])
-    else:
-        assert False, f'No task {task} found'
 
-                
-class MammoDataset(Dataset):
+
+class MammoDataset(Dataset): 
     def __init__(self, 
-                data_path = "../VinDr_Mammo/physionet.org/files/vindr-mammo/1.0.0/images/",
+                data_path = "../VinDr_Mammo/physionet.org/files/vindr-mammo/1.0.0/images_png/",
+                metadata = "../VinDr_Mammo/physionet.org/files/vindr-mammo/1.0.0/breast-level_annotations1.csv",
+                phase ='train',
+                transform=None,
+                seed=None):
+        self.phase = phase
+        self.data_path= data_path
+        if(seed):
+            seed_everything(seed)
+
+        self.transform = data_transforms[self.phase] if(transform == None) else transform
+        data = pd.read_csv(metadata)
+        self.data = data.loc[data['split']== phase].reset_index()
+        
+    def get_score(self, data, index):
+        birads= data['breast_birads'].iloc[index]
+        score= eval(birads[-1])
+        return score
+    def get_path(self, data, index):
+        
+        image_name = data['image_id'].iloc[index]
+        study_id= data['study_id'].iloc[index]
+        image_path = os.path.join(self.data_path, study_id+'/'+image_name+ '.png')
+        return (image_path)
+    def __getitem__(self, index):
+        image_path = self.get_path(self.data, index)
+        image = cv2.imread(image_path)
+        if self.transform:
+            image = self.transform(image)
+        label = self.get_score(self.data, index) -1
+        return image, label 
+    
+    
+    def __len__(self):
+        return len(self.data.index)
+class MammoCompDataset(Dataset):
+    def __init__(self, 
+                data_path = "../VinDr_Mammo/physionet.org/files/vindr-mammo/1.0.0/images_png/",
                 metadata = "../VinDr_Mammo/physionet.org/files/vindr-mammo/1.0.0/breast-level_annotations1.csv",
                 phase="train", 
                 mode="binary_contrastive", 
@@ -155,6 +152,8 @@ class MammoDataset(Dataset):
                     i1 = random.randint(0, 4)
                     i2 = i1
                 # pickimageA = randint(0, lenofclass[random_pick_2class[0]], (1,))
+                self.listi1.append(i1)
+                self.listi2.append(i2)
                 self.paths1.append(self.get_path(self.birads[i1], randint(0, self.len_of_classes[i1], (1,))[0]))
                 self.paths2.append(self.get_path(self.birads[i2], randint(0, self.len_of_classes[i2], (1,))[0]))
                 self.complabels.append((i1 == i2) * 1)
@@ -215,35 +214,26 @@ class MammoDataset(Dataset):
         
         image_name = data['image_id'].iloc[index.item()]
         study_id= data['study_id'].iloc[index.item()]
-        image_path = os.path.join(self.data_path, study_id+'/'+image_name+ '.dicom')
+        image_path = os.path.join(self.data_path, study_id+'/'+image_name+ '.png')
         return (image_path)
     def __getitem__(self, index):
-        imageA = read_xray(self.paths1[index])
-        imageB = read_xray(self.paths2[index])
+        imageA = cv2.imread(self.paths1[index])
+        imageB = cv2.imread(self.paths2[index])
 
         label = self.complabels[index]
-        transformA = self.transform.copy()
-        if check_ori(imageA):
-            transformA.insert(1,transforms.RandomHorizontalFlip(p=1))
-        transformA= transforms.Compose(transformA)
         
-        transformB = self.transform.copy()
-        if check_ori(imageB):
-            transformB.insert(1,transforms.RandomHorizontalFlip(p=1))
-        transformB= transforms.Compose(transformB)
-        imageA = transformA(imageA)
-        imageB = transformB(imageB)
-
-        return (imageA, imageB), label, (self.listi1[index], self.listi2[index])
+        imageA = self.transform(imageA)
+        imageB = self.transform(imageB)
+        if self.mode =='severity_comparison':
+            ref_img = self.get_ref_images()
+            return (imageA, imageB), ref_img, label, (self.listi1[index], self.listi2[index])
+        else:
+            return (imageA, imageB), label, (self.listi1[index], self.listi2[index])
     
     def get_ref_images(self):
-        ref_img = self.imagesinclass0[randint(0, len(self.imagesinclass0), (1,))[0]]
-        ref_img = read_xray(ref_img)
-        transformr = self.transform.copy()
-        if check_ori(ref_img):
-            transformr.insert(1,transforms.RandomHorizontalFlip(p=1))
-        transformr= transforms.Compose(transformr)
-        ref_img = transformr(ref_img)
+        ref_img = self.get_path(self.imagesinclass0,randint(0, len(self.imagesinclass0), (1,))[0])
+        ref_img = cv2.imread(ref_img)
+        ref_img = self.transform(ref_img)
         
         return ref_img
     
