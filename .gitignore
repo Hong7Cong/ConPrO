@@ -8,5 +8,6 @@ pycarl/
 stormpy/
 *.zip
 *.npy
+*.png
 pics/
 private_repo/
