@@ -1,7 +1,7 @@
 pretrained/
 pythonvideoconvertermaster/
 SimCLR/
-# cvi-eye-tracking/
+cvi-eye-tracking/
 ssm/
 storm/
 pycarl/
